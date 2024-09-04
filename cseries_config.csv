@@ -1,0 +1,3 @@
+Pump Name,Syringe Volume,Increment Mode,Accleration/Decleration Slope Code,Start Velocity,Top Velocity,Cutoff Velocity,Cutoff Increments,Pump Address,Pump Port,Baud Rate,Timeout
+Test1,1,0,14,900,5600,900,0,1,/dev/ttyUSB0,9600,1
+Test2,1,0,14,900,5600,900,0,2,/dev/ttyUSB0,9600,1
