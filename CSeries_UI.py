@@ -4,7 +4,7 @@ from time import sleep
 # cseries_configurator.write_csv()
 
 string = input('Enter a Valid command string: ')
-pump_name_1 = 'Test2' # input('Enter name of pump to command (defualt is Test): ') or 'Test'
+pump_name_1 = 'Tecan' # input('Enter name of pump to command (defualt is Test): ') or 'Test'
 # pump_name_2 = 'Test2'
 
 print('\r')

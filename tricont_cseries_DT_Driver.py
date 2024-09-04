@@ -227,7 +227,7 @@ class cseries_configurator(object):
     #Defaults for many values enteted in args line here; can be modified at use with Keyword Arg; defaults based on mode 0 power-up defaults
     def write_csv(baudrate = 9600, timeout = 1, acc_slope_code = 14, start_velo = 900, 
                   top_velo = 5600, cutoff_velo = 900, cutoff_incre = 0) :
-        csv_top = ['Pump Name', 'Syringe Volume','Increment Mode', 
+        csv_top = ['Pump Name', 'Syringe Volume','Increment Mode', "Stepping Mode",
                    'Accleration/Decleration Slope Code', 'Start Velocity', 'Top Velocity',
                      'Cutoff Velocity', 'Cutoff Increments',  'Pump Address', 
                      'Pump Port', 'Baud Rate', 'Timeout']
@@ -241,9 +241,10 @@ class cseries_configurator(object):
                 pump_name = input('Enter a Name for Pump: ')
                 syringe_vol = input('Enter Volume of Syringe in Pump (in mL): ')
                 pump_addy = input('Enter the adress which the Pump is using: ')
-                incre_mode = input('''Enter Micro-Setp Increment Mode for pump \n 
+                incre_mode = input('''Enter Increment Mode for pump \n 
                                 \n Default is Mode 0
-                                \n(0 = 24000 Total Increments ; 1 = 196000 Total Increments Position only ; 2 = 196K Increments For Position and Velocity ; 3 - 3000 Total Incre):  ''') 
+                                \n(0 = Standard Increments ; 1 = MicroStep Increments):''') 
+                pump_max_steps = input("How many steps is a standard full stroke for this pump (1 for 3000 or 2 for 24000):")
                 # Get a list of available ports
                 ports = list(serial.tools.list_ports.comports())
                 # Iterate through each port and check if the device matches the target IDs
@@ -259,7 +260,7 @@ class cseries_configurator(object):
                     else:
                         print('No Tricont C-Series Pumps found')
 
-                new_row = [pump_name, syringe_vol,incre_mode, acc_slope_code, start_velo, top_velo, 
+                new_row = [pump_name, syringe_vol,incre_mode, pump_max_steps, acc_slope_code, start_velo, top_velo, 
                         cutoff_velo, cutoff_incre,  pump_addy, used_port, baudrate, timeout]
                 
                 writer.writerow(new_row)
@@ -278,15 +279,16 @@ class cseries_DT(object):
                 if row[0] == pump_name:
                     self.syringe_volume = int(row[1])
                     self.incre_mode = row[2]
-                    self.acc_slope = row[3]
-                    self.start_velo = row[4]
-                    self.top_velo = row[5]
-                    self.cutoff_velo = row[6]
-                    self.cutoff_incre = row[7]
-                    self.pump_address = row[8]
-                    self.pump_port = row[9]
-                    self.baudrate = int(row[10])
-                    self.timeout = int(row[11])
+                    self.pump_max_steps = row[3]
+                    self.acc_slope = row[4]
+                    self.start_velo = row[5]
+                    self.top_velo = row[6]
+                    self.cutoff_velo = row[7]
+                    self.cutoff_incre = row[8]
+                    self.pump_address = row[9]
+                    self.pump_port = row[10]
+                    self.baudrate = int(row[11])
+                    self.timeout = int(row[12])
                     self.connection = serial.Serial(timeout = self.timeout)
                     self.connection.port = self.pump_port
                     found_pump = True
@@ -308,14 +310,25 @@ class cseries_DT(object):
         ''' Configures Pump with information from configuration file '''
         cseries_DT.send_cmd(self, 'N', self.incre_mode)
         if self.incre_mode == '0':
-            self.max_steps = 3000
-        elif self.incre_mode == '1' or '2':
-            self.max_steps = 196000
-        elif self.incre_mode == '3':
-            self.max_steps = 3000
+            if  self.pump_max_steps == "1":
+                self.max_steps = 3000
+            elif self.pump_max_steps == "2":
+                self.max_steps = 24000
+            else: 
+                print('Configuration Error , Max Steps Invalid')
+                
+        elif self.incre_mode == '1':
+            if self.pump_max_steps == "1":
+                self.max_steps = 24000
+            elif self.pump_max_steps == "2":
+                self.max_steps = 196000
+            else: 
+                print('Configuration Error , Max Steps Invalid')
+                
         else:
             print('Configuration Error , Increment Mode Invalid')
             exit()
+            
         cseries_DT.wait4idle(self, self.pump_address)
         
 
@@ -379,7 +392,7 @@ class cseries_DT(object):
             if 96 in back:  # 64 is @ (busy) and 48 is 0 (idle) 96 is ' which is also good
                 return True
 
-    def switch_valve(self,destination_valve=str):
+    def switch_valve(self,destination_valve=str,verbose=False):
         """ Checks to see if pump is already at destination valve, then if it is not 
             Switches to the desired valve position as set by destination valve.
             Prints message and passes if valve is already at destination."""
@@ -392,12 +405,13 @@ class cseries_DT(object):
         cseries_DT.wait4idle(self,self.pump_address)
         
         # Debugging Prints
-        print('\nSwitch Valve Debug Info')
-        print('  Response Bytes: ', self.read_text_bytes)
-        print('  Device Status Data: ' + status_temp.data)
-        print('  Device Status Data (Uppercase): ' + status_temp.data.upper())
-        print('  Key of destination_valve: '+ destination_valve)
-        print('  Value of destination_valve: '+ Valve_Pos[destination_valve])
+        if verbose == True:
+            print('\nSwitch Valve Debug Info')
+            print('  Response Bytes: ', self.read_text_bytes)
+            print('  Device Status Data: ' + status_temp.data)
+            print('  Device Status Data (Uppercase): ' + status_temp.data.upper())
+            print('  Key of destination_valve: '+ destination_valve)
+            print('  Value of destination_valve: '+ Valve_Pos[destination_valve])
 
         if status_temp.data.upper() == Valve_Pos[destination_valve]:
             print('\nValve is already at destination valve '+ destination_valve + '! No change made by switch_valve')
@@ -408,7 +422,7 @@ class cseries_DT(object):
                     print('\nValve moved to Destination: '+ key)
                     break
 
-    def move2pos_abs_ml(self,abs_ml):
+    def move2pos_abs_ml(self,abs_ml,verbose=False):
         """ Collectes needed info / variables , 
             then calculates step position
             then perpares string to send
@@ -417,7 +431,8 @@ class cseries_DT(object):
         steps = int((self.max_steps/ int(self.syringe_volume)) * abs_ml)
         if steps in range(self.max_steps + 1):
             cseries_DT.send_cmd(self,'A',str(steps))
-            print('Moving to Increment '+ str(steps))
+            if verbose == True: 
+                print('Moving to Increment '+ str(steps))
         else:
             print("Request Position is Outside Possible Range")
             pass  # todo: error handling

@@ -14,7 +14,7 @@ cseries_DT.wait4idle(prime, prime.pump_address)
 cseries_DT.wait4idle(prime, prime.pump_address)
 
 multi_commands = ['g','I','A','O','A','G']
-multi_operands = ['','','3000','','0','25']
+multi_operands = ['','','3000','','41','25']
 
 cseries_DT.send_cmd_multi(prime, multi_commands,multi_operands)
 
